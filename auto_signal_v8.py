@@ -129,7 +129,8 @@ def collect_data():
         target_6m = pd.Timestamp.now() - pd.DateOffset(months=6)
         idx_6m = (hy["date"] - target_6m).abs().idxmin()
         v6m = float(hy.loc[idx_6m, "value"]) * 100
-        d["hySpread"] = {"value": curr, "value6mAgo": v6m, "roc6m": (curr - v6m) / v6m * 100}
+        roc6m = (curr - v6m) / v6m * 100 if v6m > 0 else 0
+        d["hySpread"] = {"value": curr, "value6mAgo": v6m, "roc6m": roc6m}
         print(f"  ✓ HY {curr:.0f}bp (6M ROC {d['hySpread']['roc6m']:+.0f}%)")
     
     fg = fetch_fear_greed()
@@ -287,7 +288,7 @@ def check_momentum_trend(d):
     vix_slope = None
     if d.get("vix", {}).get("current") and d.get("vix", {}).get("value3mAgo"):
         v = d["vix"]
-        vix_slope = (v["current"] - v["value3mAgo"]) / v["value3mAgo"] * 100
+        vix_slope = (v["current"] - v["value3mAgo"]) / v["value3mAgo"] * 100 if v["value3mAgo"] > 0 else 0
     
     if hy_roc is not None and hy_roc >= 10:
         info["deterioration"] = True
@@ -440,7 +441,7 @@ def compute_v8(d):
     ma_dist = (sp["current"] / sp["ma200"] - 1) * 100 if sp.get("ma200") and sp.get("current") else None
     vix_slope = None
     if vix.get("current") and vix.get("value3mAgo"):
-        vix_slope = (vix["current"] - vix["value3mAgo"]) / vix["value3mAgo"] * 100
+        vix_slope = (vix["current"] - vix["value3mAgo"]) / vix["value3mAgo"] * 100 if vix["value3mAgo"] > 0 else 0
     
     raw = {
         "vix": score_vix(vix.get("current"), vix.get("avg3m")),
@@ -526,10 +527,20 @@ def format_alert(signal, d, prev_level=None):
     
     msg += "\n<b>📈 핵심 지표:</b>\n"
     if sp.get("current"):
-        msg += f"• S&P 500: {sp['current']:.0f} (MA200 {(sp['current']/sp['ma200']-1)*100:+.1f}%, DD {signal['derived']['avg_dd']:+.1f}%)\n"
+        avg_dd = signal['derived'].get('avg_dd')
+        ma_dist_str = ""
+        if sp.get("ma200"):
+            ma_dist = (sp['current']/sp['ma200']-1)*100
+            ma_dist_str = f", MA200 {ma_dist:+.1f}%"
+        dd_str = f", DD {avg_dd:+.1f}%" if avg_dd is not None else ""
+        msg += f"• S&P 500: {sp['current']:.0f}{ma_dist_str}{dd_str}\n"
     if vix.get("current"):
-        slope = (vix["current"] - vix.get("value3mAgo", vix["current"])) / vix.get("value3mAgo", vix["current"]) * 100
-        msg += f"• VIX: {vix['current']:.1f} (slope {slope:+.0f}%)\n"
+        v3m = vix.get("value3mAgo")
+        if v3m and v3m > 0:
+            slope = (vix["current"] - v3m) / v3m * 100
+            msg += f"• VIX: {vix['current']:.1f} (slope {slope:+.0f}%)\n"
+        else:
+            msg += f"• VIX: {vix['current']:.1f}\n"
     if fg.get("value"):
         msg += f"• F&G: {fg['value']} (1M {fg.get('change1m', 0):+d})\n"
     if hy.get("value"):
@@ -599,13 +610,40 @@ def save_state(state):
 def main():
     print(f"🚀 v8-fast 자동화 시작 — {datetime.now()}\n")
     
-    d = collect_data()
+    # 환경변수 확인
+    print("🔑 환경변수 체크:")
+    print(f"   FRED_API_KEY: {'✓ 설정됨' if FRED_API_KEY else '❌ 없음'}")
+    print(f"   TELEGRAM_BOT_TOKEN: {'✓ 설정됨' if TG_BOT_TOKEN else '❌ 없음'}")
+    print(f"   TELEGRAM_CHAT_ID: {'✓ 설정됨' if TG_CHAT_ID else '❌ 없음'}")
+    print()
+    
+    if not FRED_API_KEY:
+        print("⚠️ FRED_API_KEY가 없습니다. GitHub Secrets에 등록하세요.")
+        print("   Settings → Secrets and variables → Actions → New repository secret")
+        return
+    
+    try:
+        d = collect_data()
+    except Exception as e:
+        print(f"❌ 데이터 수집 중 예외 발생: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return
+    
     if "sp500" not in d or "vix" not in d:
-        print("❌ 핵심 데이터 수집 실패")
+        print("❌ 핵심 데이터 수집 실패 (SPX 또는 VIX 누락)")
+        print("   Yahoo Finance 일시 장애 가능. 30분 후 재시도 권장.")
         return
     
     print()
-    signal = compute_v8(d)
+    
+    try:
+        signal = compute_v8(d)
+    except Exception as e:
+        print(f"❌ 신호 계산 중 예외 발생: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return
     
     print(f"🎯 {signal['level']}")
     print(f"   점수: {signal['score']:+.2f}")
@@ -626,18 +664,33 @@ def main():
         should_alert = True
     
     if should_alert:
-        msg = format_alert(signal, d, prev_level)
-        send_telegram(msg)
+        try:
+            msg = format_alert(signal, d, prev_level)
+            send_telegram(msg)
+        except Exception as e:
+            print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
     else:
         print(f"\n⏭️ 알림 스킵 (변경 없음: {prev_level})")
     
-    save_state({
-        "level": signal["level"], "score": signal["score"],
-        "regime": signal["gates"]["regime"]["regime"],
-        "timestamp": datetime.now().isoformat(),
-    })
+    try:
+        save_state({
+            "level": signal["level"], "score": signal["score"],
+            "regime": signal["gates"]["regime"]["regime"],
+            "timestamp": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        print(f"⚠️ 상태 저장 오류: {type(e).__name__}: {e}")
+    
     print("\n✅ 완료")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n❌ 예상치 못한 오류: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        # exit code 1로 종료하되, 에러 메시지를 명확히 표시
+        import sys
+        sys.exit(1)
