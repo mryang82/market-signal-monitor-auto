@@ -607,6 +607,44 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
 
 
+def export_data_json(d, signal):
+    """PWA용 data.json — 14개 입력값 형태"""
+    sp = d.get("sp500", {})
+    nq = d.get("nasdaq", {})
+    vix = d.get("vix", {})
+    fg = d.get("fearGreed", {})
+    hy = d.get("hySpread", {})
+    yc = d.get("yieldCurve", {})
+    
+    def safe(v, prec=0):
+        if v is None: return None
+        return round(v, prec) if prec > 0 else round(v)
+    
+    export = {
+        "timestamp": datetime.now().isoformat(),
+        "level": signal["level"],
+        "score": signal["score"],
+        "regime": signal["gates"]["regime"]["regime"],
+        "spx": safe(sp.get("current")),
+        "spx_high": safe(sp.get("high52w")),
+        "spx_ma200": safe(sp.get("ma200")),
+        "ndx": safe(nq.get("current")),
+        "ndx_high": safe(nq.get("high52w")),
+        "vix": safe(vix.get("current"), 1),
+        "vix_3m": safe(vix.get("avg3m"), 1),
+        "vix_3m_ago": safe(vix.get("value3mAgo"), 1),
+        "fg": fg.get("value"),
+        "fg_1m_ago": fg.get("value1mAgo"),
+        "rsi_w": safe(d.get("rsi", {}).get("weekly"), 1),
+        "hy": safe(hy.get("value")),
+        "hy_6m_ago": safe(hy.get("value6mAgo")),
+        "yc": safe(yc.get("tenMinus2y"), 2),
+    }
+    
+    Path("data.json").write_text(json.dumps(export, indent=2, default=str))
+    print(f"  ✓ data.json 저장됨 (PWA용)")
+
+
 def main():
     print(f"🚀 v8-fast 자동화 시작 — {datetime.now()}\n")
     
@@ -680,6 +718,12 @@ def main():
         })
     except Exception as e:
         print(f"⚠️ 상태 저장 오류: {type(e).__name__}: {e}")
+    
+    # PWA용 data.json 저장
+    try:
+        export_data_json(d, signal)
+    except Exception as e:
+        print(f"⚠️ data.json 저장 오류: {type(e).__name__}: {e}")
     
     print("\n✅ 완료")
 
