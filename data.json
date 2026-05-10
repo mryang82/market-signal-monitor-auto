@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-05-10T16:07:55.934419",
+  "level": "CAUTION",
+  "score": -1.7,
+  "regime": "BULL_MID",
+  "spx": 7399,
+  "spx_high": 7399,
+  "spx_ma200": 6753,
+  "ndx": 26247,
+  "ndx_high": 26247,
+  "vix": 17.2,
+  "vix_3m": 21.5,
+  "vix_3m_ago": 17.4,
+  "fg": 47,
+  "fg_1m_ago": 15,
+  "rsi_w": 63.2,
+  "hy": 279,
+  "hy_6m_ago": 302,
+  "yc": 0.49
+}
