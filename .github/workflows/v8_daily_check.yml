@@ -1,0 +1,39 @@
+name: v8 Signal Check
+
+on:
+  schedule:
+    # 매일 평일 오전 7시 KST (UTC 22:00 전일)
+    - cron: '0 22 * * 1-5'
+  workflow_dispatch:  # 수동 실행 버튼
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run v8 signal check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python auto_signal_v8.py
+      
+      - name: Save signal state
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Signal Bot"
+          git add previous_signal.json || true
+          git diff --staged --quiet || git commit -m "📊 Signal state update"
+          git push || true
