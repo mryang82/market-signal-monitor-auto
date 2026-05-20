@@ -2,9 +2,10 @@ name: v8 Signal Check
 
 on:
   schedule:
-    # 매일 평일 오전 7시 KST (UTC 22:00 전일)
+    # KST 07:17 = UTC 22:17 (전일) — 미 시장 마감 후
     - cron: '17 22 * * 1-5'
-    - cron: '17 12 * * 1-5'
+    # KST 22:17 = UTC 13:17 (당일) — 미 시장 개장 전
+    - cron: '17 13 * * 1-5'
   workflow_dispatch:  # 수동 실행 버튼
 
 jobs:
