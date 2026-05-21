@@ -32,10 +32,27 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python auto_signal_v8.py
       
-      - name: Save signal state
+      - name: Verify data.json
+        run: |
+          if [ ! -f data.json ]; then
+            echo "❌ data.json 생성 안 됨!"
+            exit 1
+          fi
+          echo "✓ data.json 존재 확인"
+          python -c "import json; d=json.load(open('data.json')); print(f\"timestamp: {d.get('timestamp','N/A')}\"); print(f\"fg: {d.get('fg','N/A')}\"); print(f\"level: {d.get('level','N/A')}\")"
+      
+      - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "Signal Bot"
-          git add previous_signal.json data.json || true
-          git diff --staged --quiet || git commit -m "📊 Signal state + data update"
-          git push || true
+          
+          git add data.json previous_signal.json 2>/dev/null || true
+          
+          if git diff --staged --quiet; then
+            echo "변경 사항 없음 — commit 생략"
+          else
+            git commit -m "📊 v8 Signal update $(date -u +%Y-%m-%dT%H:%MZ)"
+            echo "Push 시도..."
+            git push origin main
+            echo "✓ Push 완료"
+          fi
