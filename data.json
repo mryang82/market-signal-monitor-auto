@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-06-03T15:57:20.849673",
+  "timestamp": "2026-06-03T22:31:58.229496",
   "level": "NEUTRAL",
   "score": -0.2,
   "regime": "BULL_MID",
-  "spx": 7568,
+  "spx": 7554,
   "spx_high": 7610,
   "spx_ma200": 6848,
-  "ndx": 26881,
+  "ndx": 26854,
   "ndx_high": 27094,
-  "vix": 16.2,
+  "vix": 16.1,
   "vix_3m": 20.6,
   "vix_3m_ago": 29.5,
   "fg": 54,
   "fg_1m_ago": 67,
-  "rsi_w": 69.9,
+  "rsi_w": 69.3,
   "hy": 271,
   "hy_6m_ago": 288,
-  "yc": 0.42
+  "yc": 0.41
 }
