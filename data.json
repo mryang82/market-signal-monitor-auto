@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-03T15:44:59.718806",
+  "timestamp": "2026-07-03T23:18:14.871636",
   "level": "NEUTRAL",
   "score": -0.2,
   "regime": "BULL_MID",
@@ -14,7 +14,7 @@
   "fg": 32,
   "fg_1m_ago": 53,
   "rsi_w": 81.0,
-  "hy": 274,
+  "hy": 275,
   "hy_6m_ago": 281,
   "yc": 0.31
 }
