@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-13T23:03:11.063962",
+  "timestamp": "2026-08-13T23:25:30.175817",
   "level": "CAUTION",
   "score": -2.7,
   "regime": "BULL_MID",
@@ -9,8 +9,8 @@
   "ndx": 26803,
   "ndx_high": 27094,
   "vix": 14.6,
-  "vix_3m": 17.1,
-  "vix_3m_ago": 18.4,
+  "vix_3m": 17.2,
+  "vix_3m_ago": 18.0,
   "fg": 66,
   "fg_1m_ago": 41,
   "rsi_w": 64.2,
