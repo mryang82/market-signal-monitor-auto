@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-03T00:16:30.154907",
+  "timestamp": "2026-09-03T00:44:32.203734",
   "level": "NEUTRAL",
   "score": 0.5,
   "regime": "BULL_MID",
@@ -10,7 +10,7 @@
   "ndx_high": 27094,
   "vix": 15.2,
   "vix_3m": 16.8,
-  "vix_3m_ago": 15.4,
+  "vix_3m_ago": 16.1,
   "fg": 33,
   "fg_1m_ago": 51,
   "rsi_w": 53.0,
