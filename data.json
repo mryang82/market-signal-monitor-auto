@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-10T16:59:15.994271",
+  "timestamp": "2026-09-10T17:16:35.945240",
   "level": "NEUTRAL",
   "score": 1.0,
   "regime": "BULL_MID",
@@ -8,12 +8,12 @@
   "spx_ma200": 7157,
   "ndx": 26157,
   "ndx_high": 27094,
-  "vix": 17.4,
+  "vix": 17.3,
   "vix_3m": 16.4,
   "vix_3m_ago": 17.7,
   "fg": 36,
   "fg_1m_ago": 61,
-  "rsi_w": 58.6,
+  "rsi_w": 58.5,
   "hy": 271,
   "hy_6m_ago": 309,
   "yc": 0.41
