@@ -9,6 +9,7 @@ v8 React 도구의 모든 로직을 정확히 Python으로 포팅:
   ✅ ±15% PROB_TABLE
 """
 import os
+import html
 import json
 import requests
 import yfinance as yf
@@ -606,7 +607,7 @@ def compute_late_cycle(d, signal):
         "status": "ACTIVE" if active else ("NEAR" if near else "NONE"),
         "hy": round(hy) if hy is not None else None, "hy_threshold": LATE_HY,
         "yc": round(yc, 2) if yc is not None else None, "yc_threshold": LATE_YC,
-        "desc": "LATE_CYCLE: HY≥350bp 그리고 2s10s<0.3 → 매도 가중치 1.10x, 매수 0.95x",
+        "desc": "LATE_CYCLE: HY 350bp 이상 그리고 2s10s 0.3% 미만 → 매도 가중치 1.10x, 매수 0.95x",
     }
 
 
@@ -616,7 +617,7 @@ def format_late_cycle_message(lc, prev_status):
             "NONE": "⚪ <b>LATE_CYCLE 경계 해소</b>"}[lc["status"]]
     return (f"{head}\n"
             f"HY {lc['hy']}bp (기준 {lc['hy_threshold']:.0f}) · 2s10s {lc['yc']:+.2f}% (기준 {lc['yc_threshold']:.1f})\n"
-            f"<i>{lc['desc']}</i>\n"
+            f"<i>{html.escape(lc['desc'])}</i>\n"
             f"이전 상태: {prev_status or '-'}\n"
             f"※ 국면 변화는 점수 가중치 변화일 뿐 매도 신호가 아님")
 
@@ -839,28 +840,26 @@ def main():
     else:
         print(f"\n⏭️ 알림 스킵 (변경 없음: {prev_level})")
     
-    # LATE_CYCLE 상태 변화 알림 (NONE/NEAR/ACTIVE 바뀔 때 1회)
+    # LATE_CYCLE 상태 변화 알림 (NONE/NEAR/ACTIVE 바뀔 때 1회, 전송 성공 시에만 기록 → 실패하면 다음 실행에 재시도)
     lc = compute_late_cycle(d, signal)
-    prev_lc = prev_state.get("late_cycle_status")
-    if prev_lc is not None and prev_lc != lc["status"]:
-        print(f"\n📢 LATE_CYCLE 상태 변경: {prev_lc} → {lc['status']}")
+    notified = prev_state.get("late_cycle_notified")
+    if notified is None and lc["status"] == "NONE":
+        notified = "NONE"   # 첫 배포 시 평상시면 알림 없이 기준만 기록
+    if lc["status"] != notified:
+        print(f"\n📢 LATE_CYCLE 상태 변경: {notified} → {lc['status']}")
         try:
-            send_telegram(format_late_cycle_message(lc, prev_lc))
+            if send_telegram(format_late_cycle_message(lc, notified)):
+                notified = lc["status"]
         except Exception as e:
             print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
-    elif prev_lc is None and lc["status"] != "NONE":
-        # 첫 배포: 이미 근접/진입 상태면 1회 알림
-        try:
-            send_telegram(format_late_cycle_message(lc, None))
-        except Exception as e:
-            print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
-    print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']})")
+    print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']}, 알림 기록 {notified})")
 
     try:
         save_state({
             "level": signal["level"], "score": signal["score"],
             "regime": signal["gates"]["regime"]["regime"],
             "late_cycle_status": lc["status"],
+            "late_cycle_notified": notified,
             "timestamp": datetime.now().isoformat(),
         })
     except Exception as e:
