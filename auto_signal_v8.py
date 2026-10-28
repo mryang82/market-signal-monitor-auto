@@ -555,9 +555,10 @@ def compute_v8(d):
 
 # v13.2 등급표 기준 (2026-10-28 갱신). 기준선 = 아무 날 12M +15% 확률 약 51% (SPY 2011-2022)
 PROB_TABLE = {
-    "CRASH_BUY":     {"n": 2,   "pUp15": 100, "tag": "★★★★ 역사적 매수 기회 (표본 2, 희귀)"},
-    "STRONG_BUY":    {"n": 254, "pUp15": 72,  "tag": "★★★ 12M+15% 72% (기준선 약 51%)"},
-    "BUY":           {"n": 522, "pUp15": 47,  "tag": "★★ 기준선 수준 — 단독 매수 근거 약함"},
+    # 사건 단위 재검증 (2026-10-28, 2011-2026): 일 단위 표본(254건)은 같은 위기를 반복 집계해 부풀려짐
+    "CRASH_BUY":     {"ev": "2건", "pUp15": 100, "tag": "★★★ 극단 투매 (표본 2, 희귀) · 분할 매수"},
+    "STRONG_BUY":    {"ev": "독립 사건 8회 중 7회", "pUp15": 88, "tag": "★★★ 투매 구간 매수 (아무 날 46%) · 실패 2022-05 · 분할 매수"},
+    "BUY":           {"ev": "독립 사건 16회", "pUp15": 56, "tag": "★★ 기준선 수준 — 단독 매수 근거 약함"},
     "WATCH":         {"tag": "관망 (검증 수치 없음)"},
     "NEUTRAL":       {"tag": "중립"},
     "CAUTION":       {"tag": "주의 (매도 신호는 운영 제외)"},
@@ -635,7 +636,7 @@ def format_alert(signal, d, prev_level=None):
         msg += f"\n🚨 <b>신호 변경: {prev_level} → {level}</b>\n"
     
     if prob.get("pUp15"):
-        msg += f"\n📊 12M 내 +15% 확률: <b>{prob['pUp15']}%</b> (n={prob['n']})\n"
+        msg += f"\n📊 12M 내 +15% 달성: <b>{prob['pUp15']}%</b> ({prob['ev']})\n"
     if prob.get("pDown15"):
         msg += f"\n📊 12M 내 -15% MDD 확률: <b>{prob['pDown15']}%</b> (n={prob['n']})\n"
     if prob.get("tag"):
