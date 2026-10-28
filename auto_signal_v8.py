@@ -114,17 +114,25 @@ def fetch_fear_greed():
     except Exception as e:
         print(f"   ⚠️ CNN F&G 실패: {e}")
     
-    # 2차 fallback: alternative.me (⚠️ 비트코인 sentiment! 주식과 다름)
-    print("   ⚠️ CNN 실패 → alternative.me fallback (주의: 비트코인 sentiment, 주식과 다름)")
+    # 2차 fallback: whit3rabbit CNN F&G CSV (주식 sentiment, 약 1일 지연)
+    #   alternative.me(비트코인 F&G)는 2026-10-28 제거 — 주식 신호를 오염시킴
+    print("   ⚠️ CNN API 실패 → GitHub CSV 백업 시도")
     try:
-        r = requests.get("https://api.alternative.me/fng/?limit=30", timeout=10)
-        data = r.json()["data"]
-        df = pd.DataFrame(data)
-        df["value"] = pd.to_numeric(df["value"])
-        return df
+        import io
+        r = requests.get("https://raw.githubusercontent.com/whit3rabbit/fear-greed-data/main/fear-greed.csv", timeout=15)
+        r.raise_for_status()
+        df = pd.read_csv(io.StringIO(r.text)).rename(columns={"Date": "date", "Fear Greed": "value"})
+        df["date"] = pd.to_datetime(df["date"])
+        df["value"] = pd.to_numeric(df["value"]).round().astype(int)
+        df = df.sort_values("date", ascending=False).drop_duplicates("date").reset_index(drop=True)
+        lag = (pd.Timestamp.now().normalize() - df.iloc[0]["date"]).days
+        if lag > 5:
+            raise ValueError(f"CSV stale ({lag}일)")
+        print(f"  ✓ CNN F&G (CSV 백업): {df.iloc[0]['value']} ({df.iloc[0]['date'].date()})")
+        return df[["value", "date"]]
     except Exception as e:
-        print(f"❌ F&G 전체 실패: {e}")
-        return None
+        print(f"❌ F&G 전체 실패 → 점수 0 처리: {e}")
+        return None   # 비트코인 지수로 대체하지 않음
 
 
 def compute_rsi(prices, period=14):
@@ -544,16 +552,17 @@ def compute_v8(d):
 # 5. PROB_TABLE + Telegram
 # ════════════════════════════════════════════════════════════════
 
+# v13.2 등급표 기준 (2026-10-28 갱신). 기준선 = 아무 날 12M +15% 확률 약 51% (SPY 2011-2022)
 PROB_TABLE = {
-    "CRASH_BUY":     {"n": 5, "pUp15": 60, "tag": "역사적 매수 기회"},
-    "STRONG_BUY":    {"n": 12, "pUp15": 75, "tag": "가장 신뢰 높은 매수"},
-    "BUY":           {"n": 9, "pUp15": 56, "tag": "매수 우위"},
-    "WATCH":         {"n": 6, "pUp15": 17, "tag": "관망"},
-    "NEUTRAL":       {"n": 3, "tag": "중립"},
-    "CAUTION":       {"n": 7, "pDown15": 43, "tag": "주의"},
-    "WARNING":       {"n": 8, "pDown15": 62, "tag": "경보 (-15% MDD 62%)"},
-    "STRONG_SELL":   {"n": 0, "pDown15": 100, "tag": "강력 매도"},
-    "CRASH_WARNING": {"n": 1, "pDown15": 100, "tag": "패닉 경보"},
+    "CRASH_BUY":     {"n": 2,   "pUp15": 100, "tag": "★★★★ 역사적 매수 기회 (표본 2, 희귀)"},
+    "STRONG_BUY":    {"n": 254, "pUp15": 72,  "tag": "★★★ 12M+15% 72% (기준선 약 51%)"},
+    "BUY":           {"n": 522, "pUp15": 47,  "tag": "★★ 기준선 수준 — 단독 매수 근거 약함"},
+    "WATCH":         {"tag": "관망 (검증 수치 없음)"},
+    "NEUTRAL":       {"tag": "중립"},
+    "CAUTION":       {"tag": "주의 (매도 신호는 운영 제외)"},
+    "WARNING":       {"tag": "경보 (매도 신호는 운영 제외)"},
+    "STRONG_SELL":   {"tag": "매도 신호는 운영 제외 (Walk-Forward 불안정)"},
+    "CRASH_WARNING": {"tag": "매도 신호는 운영 제외 (Walk-Forward 불안정)"},
 }
 
 LEVEL_EMOJI = {
