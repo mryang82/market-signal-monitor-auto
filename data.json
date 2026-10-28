@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-28T12:37:45.459976",
+  "timestamp": "2026-10-28T13:07:14.452179",
   "level": "NEUTRAL",
   "score": 0.7,
   "regime": "BULL_MID",
@@ -11,10 +11,24 @@
   "vix": 17.4,
   "vix_3m": 15.9,
   "vix_3m_ago": 15.9,
-  "fg": 34,
+  "fg": 33,
   "fg_1m_ago": 32,
   "rsi_w": 64.3,
   "hy": 330,
   "hy_6m_ago": 282,
-  "yc": 0.32
+  "yc": 0.32,
+  "proximity": {
+    "next_level": "WATCH",
+    "next_threshold": 1.5,
+    "gap": 0.8,
+    "capped": null
+  },
+  "late_cycle": {
+    "status": "NEAR",
+    "hy": 330,
+    "hy_threshold": 350.0,
+    "yc": 0.32,
+    "yc_threshold": 0.3,
+    "desc": "LATE_CYCLE: HY\u2265350bp \uadf8\ub9ac\uace0 2s10s<0.3 \u2192 \ub9e4\ub3c4 \uac00\uc911\uce58 1.10x, \ub9e4\uc218 0.95x"
+  }
 }
