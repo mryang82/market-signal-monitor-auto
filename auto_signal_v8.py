@@ -572,6 +572,55 @@ LEVEL_EMOJI = {
 }
 
 
+# ════════════════════════════════════════════════════════════════
+# 근접도 + LATE_CYCLE 전환 감시 (2026-10-28)
+# ════════════════════════════════════════════════════════════════
+
+BUY_LEVELS_ASC = [("WATCH", 1.5), ("BUY", 4.0), ("STRONG_BUY", 8.0), ("CRASH_BUY", 13.0)]
+LATE_HY, LATE_YC = 350.0, 0.3            # classify_regime 의 LATE_CYCLE 조건
+LATE_NEAR_HY, LATE_NEAR_YC = 330.0, 0.4  # 근접 판정 (두 조건 모두 경계 근처)
+
+
+def compute_proximity(signal):
+    """다음 매수 등급까지 남은 점수 + 게이트에 막혔는지"""
+    score = signal["score"]
+    nxt = next(((n, t) for n, t in BUY_LEVELS_ASC if score < t), None)
+    g = signal["gates"]
+    capped = None
+    if signal.get("score_raw", score) >= 8 and score < 8:
+        capped = f"점수는 STRONG_BUY 수준이나 패닉 조건 {g.get('buyPanic', 0)}/4 (2개 필요) 또는 Mid-Decline 게이트로 제한"
+    return {
+        "next_level": nxt[0] if nxt else None,
+        "next_threshold": nxt[1] if nxt else None,
+        "gap": round(nxt[1] - score, 2) if nxt else None,
+        "capped": capped,
+    }
+
+
+def compute_late_cycle(d, signal):
+    hy = d.get("hySpread", {}).get("value")
+    yc = d.get("yieldCurve", {}).get("tenMinus2y")
+    active = signal["gates"]["regime"]["regime"] == "LATE_CYCLE"
+    near = (hy is not None and yc is not None and hy >= LATE_NEAR_HY and yc <= LATE_NEAR_YC)
+    return {
+        "status": "ACTIVE" if active else ("NEAR" if near else "NONE"),
+        "hy": round(hy) if hy is not None else None, "hy_threshold": LATE_HY,
+        "yc": round(yc, 2) if yc is not None else None, "yc_threshold": LATE_YC,
+        "desc": "LATE_CYCLE: HY≥350bp 그리고 2s10s<0.3 → 매도 가중치 1.10x, 매수 0.95x",
+    }
+
+
+def format_late_cycle_message(lc, prev_status):
+    head = {"ACTIVE": "🟠 <b>국면 전환: LATE_CYCLE 진입</b>",
+            "NEAR": "🟡 <b>LATE_CYCLE 전환 임박</b>",
+            "NONE": "⚪ <b>LATE_CYCLE 경계 해소</b>"}[lc["status"]]
+    return (f"{head}\n"
+            f"HY {lc['hy']}bp (기준 {lc['hy_threshold']:.0f}) · 2s10s {lc['yc']:+.2f}% (기준 {lc['yc_threshold']:.1f})\n"
+            f"<i>{lc['desc']}</i>\n"
+            f"이전 상태: {prev_status or '-'}\n"
+            f"※ 국면 변화는 점수 가중치 변화일 뿐 매도 신호가 아님")
+
+
 def format_alert(signal, d, prev_level=None):
     level = signal["level"]
     emoji = LEVEL_EMOJI.get(level, "⚪")
@@ -590,6 +639,12 @@ def format_alert(signal, d, prev_level=None):
         msg += f"\n📊 12M 내 -15% MDD 확률: <b>{prob['pDown15']}%</b> (n={prob['n']})\n"
     if prob.get("tag"):
         msg += f"<i>{prob['tag']}</i>\n"
+
+    prox = compute_proximity(signal)
+    if prox["next_level"] in ("STRONG_BUY", "CRASH_BUY") and prox["gap"] is not None and prox["gap"] <= 1.0:
+        msg += f"\n🎯 <b>{prox['next_level']}까지 {prox['gap']:.1f}점</b> (현재 {signal['score']:+.1f} / 기준 {prox['next_threshold']:.0f})\n"
+    if prox["capped"]:
+        msg += f"<i>⚠️ {prox['capped']}</i>\n"
     
     sp = d.get("sp500", {})
     vix = d.get("vix", {})
@@ -711,6 +766,8 @@ def export_data_json(d, signal):
         "hy": safe(hy.get("value")),
         "hy_6m_ago": safe(hy.get("value6mAgo")),
         "yc": safe(yc.get("tenMinus2y"), 2),
+        "proximity": compute_proximity(signal),
+        "late_cycle": compute_late_cycle(d, signal),
     }
     
     Path("data.json").write_text(json.dumps(export, indent=2, default=str))
@@ -782,10 +839,28 @@ def main():
     else:
         print(f"\n⏭️ 알림 스킵 (변경 없음: {prev_level})")
     
+    # LATE_CYCLE 상태 변화 알림 (NONE/NEAR/ACTIVE 바뀔 때 1회)
+    lc = compute_late_cycle(d, signal)
+    prev_lc = prev_state.get("late_cycle_status")
+    if prev_lc is not None and prev_lc != lc["status"]:
+        print(f"\n📢 LATE_CYCLE 상태 변경: {prev_lc} → {lc['status']}")
+        try:
+            send_telegram(format_late_cycle_message(lc, prev_lc))
+        except Exception as e:
+            print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
+    elif prev_lc is None and lc["status"] != "NONE":
+        # 첫 배포: 이미 근접/진입 상태면 1회 알림
+        try:
+            send_telegram(format_late_cycle_message(lc, None))
+        except Exception as e:
+            print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
+    print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']})")
+
     try:
         save_state({
             "level": signal["level"], "score": signal["score"],
             "regime": signal["gates"]["regime"]["regime"],
+            "late_cycle_status": lc["status"],
             "timestamp": datetime.now().isoformat(),
         })
     except Exception as e:
