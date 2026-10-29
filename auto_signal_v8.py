@@ -9,14 +9,16 @@ v8 React 도구의 모든 로직을 정확히 Python으로 포팅:
   ✅ ±15% PROB_TABLE
 """
 import os
+import sys
 import html
 import json
 import requests
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # 환경변수
 TG_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -27,6 +29,40 @@ STATE_FILE = Path("previous_signal.json")
 ALERT_ON_LEVEL_CHANGE = True
 ALERT_ON_DAILY_REPORT = False
 
+# ── 장중 봉 제외 (2026-10-29 감사) ──────────────────────────────
+# GitHub 예약 실행이 2~6시간 밀려 저녁 실행 대부분이 뉴욕 장중에 돈다.
+# 백테스트는 종가 기준이므로, 뉴욕 16:15 전이면 오늘 봉(장중 가격)을 버리고 전일 종가로 판정한다.
+NY = ZoneInfo("America/New_York")
+KST = ZoneInfo("Asia/Seoul")
+MARKET_FINAL_HHMM = (16, 15)
+
+
+def utc_now_iso():
+    """PWA가 시간대를 정확히 읽도록 UTC(+00:00) 포함 ISO 문자열"""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def kst_now_str():
+    return datetime.now(KST).strftime("%Y-%m-%d %H:%M")
+
+
+def is_intraday_now():
+    now = datetime.now(NY)
+    return now.weekday() < 5 and (now.hour, now.minute) < MARKET_FINAL_HHMM
+
+
+def drop_intraday_bar(df):
+    """마지막 행이 뉴욕 기준 오늘이고 아직 16:15 전이면 제거"""
+    if df is None or len(df) == 0:
+        return df
+    last = df.index[-1]
+    last_date = (last.tz_convert(NY) if getattr(last, "tzinfo", None) else last).date()
+    now = datetime.now(NY)
+    if last_date == now.date() and (now.hour, now.minute) < MARKET_FINAL_HHMM:
+        print(f"   ⏸ 장중 봉 제외 ({last_date})")
+        return df.iloc[:-1]
+    return df
+
 
 # ════════════════════════════════════════════════════════════════
 # 1. 데이터 수집
@@ -34,7 +70,7 @@ ALERT_ON_DAILY_REPORT = False
 
 def fetch_yahoo(ticker, period="2y"):
     try:
-        return yf.Ticker(ticker).history(period=period, interval="1d")
+        return drop_intraday_bar(yf.Ticker(ticker).history(period=period, interval="1d"))
     except Exception as e:
         print(f"❌ {ticker}: {e}")
         return None
@@ -97,6 +133,11 @@ def fetch_fear_greed():
                 
                 # 중복 날짜 제거 (CNN이 가끔 동일 날짜 다른 값 보냄)
                 df = df.drop_duplicates(subset="date", keep="first").reset_index(drop=True)
+
+                # 장중이면 오늘(뉴욕 날짜) 실시간 값 대신 전일 마감 값 사용 (2026-10-29)
+                if is_intraday_now():
+                    today_ny = pd.Timestamp(datetime.now(NY).date())
+                    df = df[df["date"] < today_ny].reset_index(drop=True)
                 
                 # 30일 전 값을 정확한 날짜로 찾기 (인덱스가 아니라)
                 target_1m = df.iloc[0]["date"] - pd.Timedelta(days=30)
@@ -699,7 +740,7 @@ def format_alert(signal, d, prev_level=None):
         msg += f"\n🟢 매수 패닉 ({gates['buyPanic']}/4): "
         msg += ", ".join([c[0] for c in gates["buyChecks"]]) + "\n"
     
-    msg += f"\n📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    msg += f"\n📅 {kst_now_str()} KST"
     return msg
 
 
@@ -750,7 +791,7 @@ def export_data_json(d, signal):
         return round(v, prec) if prec > 0 else round(v)
     
     export = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_now_iso(),
         "level": signal["level"],
         "score": signal["score"],
         "regime": signal["gates"]["regime"]["regime"],
@@ -768,12 +809,25 @@ def export_data_json(d, signal):
         "hy": safe(hy.get("value")),
         "hy_6m_ago": safe(hy.get("value6mAgo")),
         "yc": safe(yc.get("tenMinus2y"), 2),
+        "missing": [name for k, name in (("nasdaq", "나스닥"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
+                                       ("fearGreed", "F&G"), ("rsi", "RSI")) if k not in d],
+        "intraday_excluded": is_intraday_now(),
         "proximity": compute_proximity(signal),
         "late_cycle": compute_late_cycle(d, signal),
     }
     
     Path("data.json").write_text(json.dumps(export, indent=2, default=str))
     print(f"  ✓ data.json 저장됨 (PWA용)")
+
+
+def fail_exit(reason):
+    """실패를 조용히 넘기지 않음: 텔레그램 경고 + exit 1 (Actions 실패 메일도 발송됨)"""
+    try:
+        send_telegram(f"⚠️ <b>장기 v8 실행 실패</b>\n{html.escape(reason)}\n"
+                      f"data.json이 갱신되지 않았습니다. 앱 신호는 마지막 성공 값입니다.\n📅 {kst_now_str()} KST")
+    except Exception:
+        pass
+    sys.exit(1)
 
 
 def main():
@@ -789,7 +843,7 @@ def main():
     if not FRED_API_KEY:
         print("⚠️ FRED_API_KEY가 없습니다. GitHub Secrets에 등록하세요.")
         print("   Settings → Secrets and variables → Actions → New repository secret")
-        return
+        fail_exit("FRED_API_KEY 시크릿 없음")
     
     try:
         d = collect_data()
@@ -797,12 +851,12 @@ def main():
         print(f"❌ 데이터 수집 중 예외 발생: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        return
+        fail_exit(f"데이터 수집 예외: {type(e).__name__}")
     
     if "sp500" not in d or "vix" not in d:
         print("❌ 핵심 데이터 수집 실패 (SPX 또는 VIX 누락)")
         print("   Yahoo Finance 일시 장애 가능. 30분 후 재시도 권장.")
-        return
+        fail_exit("SPX 또는 VIX 수집 실패 (Yahoo 장애 가능)")
     
     print()
     
@@ -812,7 +866,7 @@ def main():
         print(f"❌ 신호 계산 중 예외 발생: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        return
+        fail_exit(f"신호 계산 예외: {type(e).__name__}")
     
     print(f"🎯 {signal['level']}")
     print(f"   점수: {signal['score']:+.2f}")
@@ -855,13 +909,24 @@ def main():
             print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
     print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']}, 알림 기록 {notified})")
 
+    # 보조 입력 결측 알림 (F&G·HY 등 실패 시 해당 점수 0으로 계산됨) — 결측 구성이 바뀔 때만 1회
+    missing = [name for k, name in (("nasdaq", "나스닥"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
+                                     ("fearGreed", "F&G"), ("rsi", "RSI")) if k not in d]
+    missing_notified = prev_state.get("missing_notified", [])
+    if missing != missing_notified:
+        text = (f"⚠️ <b>v8 입력 결측</b>: {', '.join(missing)}\n해당 지표 점수 0으로 계산 중 — 신호 신뢰도 낮음"
+                if missing else "✅ <b>v8 입력 결측 해소</b> — 모든 지표 정상 수집")
+        if send_telegram(text + f"\n📅 {kst_now_str()} KST"):
+            missing_notified = missing
+
     try:
         save_state({
+            "missing_notified": missing_notified,
             "level": signal["level"], "score": signal["score"],
             "regime": signal["gates"]["regime"]["regime"],
             "late_cycle_status": lc["status"],
             "late_cycle_notified": notified,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": utc_now_iso(),
         })
     except Exception as e:
         print(f"⚠️ 상태 저장 오류: {type(e).__name__}: {e}")
