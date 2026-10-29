@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-29T01:57:26.199410",
+  "timestamp": "2026-10-29T07:27:10.560622+00:00",
   "level": "NEUTRAL",
   "score": 0.7,
   "regime": "BULL_MID",
@@ -17,6 +17,8 @@
   "hy": 318,
   "hy_6m_ago": 282,
   "yc": 0.29,
+  "missing": [],
+  "intraday_excluded": true,
   "proximity": {
     "next_level": "WATCH",
     "next_threshold": 1.5,
