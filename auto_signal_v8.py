@@ -205,7 +205,7 @@ def collect_data():
         d["nasdaq"] = {"current": curr, "high52w": high52w,
                        "low52w": float(ndx["Close"].iloc[-252:].min()),
                        "ma200": float(ndx["Close"].rolling(200).mean().iloc[-1])}
-        print(f"  ✓ NDX {curr:.0f} (DD {(curr/high52w-1)*100:+.1f}%)")
+        print(f"  ✓ IXIC(나스닥 종합) {curr:.0f} (DD {(curr/high52w-1)*100:+.1f}%)")
     
     vix = fetch_yahoo("^VIX")
     if vix is not None and len(vix) >= 90:
@@ -798,8 +798,10 @@ def export_data_json(d, signal):
         "spx": safe(sp.get("current")),
         "spx_high": safe(sp.get("high52w")),
         "spx_ma200": safe(sp.get("ma200")),
-        "ndx": safe(nq.get("current")),
-        "ndx_high": safe(nq.get("high52w")),
+        # 나스닥 종합(^IXIC). v8 원설계·재현이 IXIC 기준이라 지수는 그대로 두고 키 이름만 실제에 맞춤 (2026-10-29).
+        # 나스닥100(^NDX)은 단기 저장소 short_term.ndx_dd·trend_defense에 있음.
+        "ixic": safe(nq.get("current")),
+        "ixic_high": safe(nq.get("high52w")),
         "vix": safe(vix.get("current"), 1),
         "vix_3m": safe(vix.get("avg3m"), 1),
         "vix_3m_ago": safe(vix.get("value3mAgo"), 1),
@@ -809,7 +811,7 @@ def export_data_json(d, signal):
         "hy": safe(hy.get("value")),
         "hy_6m_ago": safe(hy.get("value6mAgo")),
         "yc": safe(yc.get("tenMinus2y"), 2),
-        "missing": [name for k, name in (("nasdaq", "나스닥"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
+        "missing": [name for k, name in (("nasdaq", "나스닥 종합"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
                                        ("fearGreed", "F&G"), ("rsi", "RSI")) if k not in d],
         "intraday_excluded": is_intraday_now(),
         "proximity": compute_proximity(signal),
@@ -910,7 +912,7 @@ def main():
     print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']}, 알림 기록 {notified})")
 
     # 보조 입력 결측 알림 (F&G·HY 등 실패 시 해당 점수 0으로 계산됨) — 결측 구성이 바뀔 때만 1회
-    missing = [name for k, name in (("nasdaq", "나스닥"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
+    missing = [name for k, name in (("nasdaq", "나스닥 종합"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
                                      ("fearGreed", "F&G"), ("rsi", "RSI")) if k not in d]
     missing_notified = prev_state.get("missing_notified", [])
     if missing != missing_notified:
