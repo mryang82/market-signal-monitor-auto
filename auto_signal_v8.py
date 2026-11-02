@@ -35,6 +35,7 @@ ALERT_ON_DAILY_REPORT = False
 NY = ZoneInfo("America/New_York")
 KST = ZoneInfo("Asia/Seoul")
 MARKET_FINAL_HHMM = (16, 15)
+FRED_MAX_AGE_DAYS = 10   # 연휴 포함 정상 지연은 4~5일 이내
 
 
 def utc_now_iso():
@@ -70,7 +71,9 @@ def drop_intraday_bar(df):
 
 def fetch_yahoo(ticker, period="2y"):
     try:
-        return drop_intraday_bar(yf.Ticker(ticker).history(period=period, interval="1d"))
+        h = yf.Ticker(ticker).history(period=period, interval="1d")
+        h = h[h["Close"].notna()]   # 마지막 행 Close가 NaN이면 round(nan)에서 저장 실패 (2026-11-03)
+        return drop_intraday_bar(h)
     except Exception as e:
         print(f"❌ {ticker}: {e}")
         return None
@@ -89,7 +92,13 @@ def fetch_fred(series_id):
         df = pd.DataFrame(data)
         df["date"] = pd.to_datetime(df["date"])
         df["value"] = pd.to_numeric(df["value"], errors="coerce")
-        return df.dropna()
+        df = df.dropna()
+        # 최신 관측이 오래됐으면 결측 처리 → 결측 알림 (조용히 옛 값을 쓰지 않음, 2026-11-03)
+        age = (pd.Timestamp.now().normalize() - df.iloc[0]["date"]).days
+        if age > FRED_MAX_AGE_DAYS:
+            print(f"❌ FRED {series_id}: 최신 관측 {df.iloc[0]['date'].date()} ({age}일 전) → 결측 처리")
+            return None
+        return df
     except Exception as e:
         print(f"❌ FRED {series_id}: {e}")
         return None
@@ -594,24 +603,32 @@ def compute_v8(d):
 # 5. PROB_TABLE + Telegram
 # ════════════════════════════════════════════════════════════════
 
-# v13.2 등급표 기준 (2026-10-28 갱신). 기준선 = 아무 날 12M +15% 확률 약 51% (SPY 2011-2022)
+# v14 등급표 (2026-11-03 정리). 기준선 = 아무 날 12M +15% 확률 46% (2011-2026). 근거: claude/strongbuy_*_2026-10-2x.md
 PROB_TABLE = {
     # 사건 단위 재검증 (2026-10-28, 2011-2026): 일 단위 표본(254건)은 같은 위기를 반복 집계해 부풀려짐
-    "CRASH_BUY":     {"ev": "2건", "pUp15": 100, "tag": "★★★ 극단 투매 (표본 2, 희귀) · 분할 매수"},
-    "STRONG_BUY":    {"ev": "2011~ 독립 사건 8회 중 7회", "pUp15": 88, "tag": "★★★ 투매 구간 매수 (아무 날 46%) · 실패 2022-05 · 2001·2008 약세장 5회 실패 · 방어 모드 중엔 50% 안에서 분할 매수"},
-    "BUY":           {"ev": "독립 사건 16회", "pUp15": 56, "tag": "★★ 기준선 수준 — 단독 매수 근거 약함"},
+    "CRASH_BUY":     {"tag": "★★★ 극단 투매 — 표본 2건뿐, 통계 근거 약함 · 분할 매수"},
+    "STRONG_BUY":    {"ev": "2011~ 독립 사건 8회 중 7회 · 1998~ 13회 중 7회", "pUp15": 88,
+                      "tag": "★★★ 투매 구간 매수 (아무 날 46%) · 실패 2022-05 · 2001·2008 약세장 5회 모두 실패 · 방어 모드 중엔 50% 안에서 분할 매수"},
+    "BUY":           {"tag": "참고 — 2011~ 사건 16회 12M+15% 56% (아무 날 46%), 차이 작음 · 현 포지션 유지"},
     "WATCH":         {"tag": "관망 (검증 수치 없음)"},
     "NEUTRAL":       {"tag": "중립"},
-    "CAUTION":       {"tag": "주의 (매도 신호는 운영 제외)"},
-    "WARNING":       {"tag": "경보 (매도 신호는 운영 제외)"},
-    "STRONG_SELL":   {"tag": "매도 신호는 운영 제외 (Walk-Forward 불안정)"},
-    "CRASH_WARNING": {"tag": "매도 신호는 운영 제외 (Walk-Forward 불안정)"},
+    "CAUTION":       {"tag": "매도 등급은 운영 제외 — 중립과 같이 취급"},
+    "WARNING":       {"tag": "매도 등급은 운영 제외 — 중립과 같이 취급"},
+    "STRONG_SELL":   {"tag": "매도 등급은 운영 제외 — 중립과 같이 취급"},
+    "CRASH_WARNING": {"tag": "매도 등급은 운영 제외 — 중립과 같이 취급"},
 }
+
+# 알림 기준 등급: 매도 등급(운영 제외)은 NEUTRAL로 묶어 그 사이 변화로는 알림을 보내지 않음 (2026-11-03)
+SELL_LEVELS = ("CAUTION", "WARNING", "STRONG_SELL", "CRASH_WARNING")
+
+
+def alert_level(level):
+    return "NEUTRAL" if level in SELL_LEVELS else level
 
 LEVEL_EMOJI = {
     "CRASH_BUY": "🟢🟢🟢", "STRONG_BUY": "🟢🟢", "BUY": "🟢",
-    "WATCH": "⚪", "NEUTRAL": "⚪", "CAUTION": "🟡",
-    "WARNING": "🔴🔴", "STRONG_SELL": "🔴🔴🔴", "CRASH_WARNING": "🚨🚨🚨",
+    "WATCH": "⚪", "NEUTRAL": "⚪", "CAUTION": "⚪",
+    "WARNING": "⚪", "STRONG_SELL": "⚪", "CRASH_WARNING": "⚪",
 }
 
 
@@ -645,8 +662,12 @@ def compute_late_cycle(d, signal):
     yc = d.get("yieldCurve", {}).get("tenMinus2y")
     active = signal["gates"]["regime"]["regime"] == "LATE_CYCLE"
     near = (hy is not None and yc is not None and hy >= LATE_NEAR_HY and yc <= LATE_NEAR_YC)
+    if hy is None or yc is None:
+        status = "UNKNOWN"   # FRED 결측: '해소'로 오판하지 않고 판정 보류 (2026-11-03)
+    else:
+        status = "ACTIVE" if active else ("NEAR" if near else "NONE")
     return {
-        "status": "ACTIVE" if active else ("NEAR" if near else "NONE"),
+        "status": status,
         "hy": round(hy) if hy is not None else None, "hy_threshold": LATE_HY,
         "yc": round(yc, 2) if yc is not None else None, "yc_threshold": LATE_YC,
         "desc": "LATE_CYCLE: HY 350bp 이상 그리고 2s10s 0.3% 미만 → 매도 가중치 1.10x, 매수 0.95x",
@@ -670,24 +691,23 @@ def format_alert(signal, d, prev_level=None):
     prob = PROB_TABLE.get(level, {})
     gates = signal["gates"]
     
-    msg = f"{emoji} <b>{level}</b>\n"
-    msg += f"점수: {signal['score']:+.2f} | 국면: {gates['regime']['regime']}\n"
+    E = html.escape   # 텔레그램 HTML: 동적 문자열은 모두 이스케이프 (2026-11-03)
+    msg = f"{emoji} <b>{E(level)}</b>\n"
+    msg += f"점수: {signal['score']:+.2f} | 국면: {E(str(gates['regime']['regime']))}\n"
     
     if prev_level and prev_level != level:
-        msg += f"\n🚨 <b>신호 변경: {prev_level} → {level}</b>\n"
+        msg += f"\n🚨 <b>신호 변경: {E(str(prev_level))} → {E(level)}</b>\n"
     
     if prob.get("pUp15"):
-        msg += f"\n📊 12M 내 +15% 달성: <b>{prob['pUp15']}%</b> ({prob['ev']})\n"
-    if prob.get("pDown15"):
-        msg += f"\n📊 12M 내 -15% MDD 확률: <b>{prob['pDown15']}%</b> (n={prob['n']})\n"
+        msg += f"\n📊 12M 내 +15% 달성: <b>{prob['pUp15']}%</b> ({E(prob['ev'])})\n"
     if prob.get("tag"):
-        msg += f"<i>{prob['tag']}</i>\n"
+        msg += f"<i>{E(prob['tag'])}</i>\n"
 
     prox = compute_proximity(signal)
     if prox["next_level"] in ("STRONG_BUY", "CRASH_BUY") and prox["gap"] is not None and prox["gap"] <= 1.0:
         msg += f"\n🎯 <b>{prox['next_level']}까지 {prox['gap']:.1f}점</b> (현재 {signal['score']:+.1f} / 기준 {prox['next_threshold']:.0f})\n"
     if prox["capped"]:
-        msg += f"<i>⚠️ {prox['capped']}</i>\n"
+        msg += f"<i>⚠️ {E(prox['capped'])}</i>\n"
     
     sp = d.get("sp500", {})
     vix = d.get("vix", {})
@@ -703,7 +723,7 @@ def format_alert(signal, d, prev_level=None):
             ma_dist = (sp['current']/sp['ma200']-1)*100
             ma_dist_str = f", MA200 {ma_dist:+.1f}%"
         dd_str = f", DD {avg_dd:+.1f}%" if avg_dd is not None else ""
-        msg += f"• S&P 500: {sp['current']:.0f}{ma_dist_str}{dd_str}\n"
+        msg += f"• S&amp;P 500: {sp['current']:.0f}{ma_dist_str}{dd_str}\n"
     if vix.get("current"):
         v3m = vix.get("value3mAgo")
         if v3m and v3m > 0:
@@ -712,7 +732,7 @@ def format_alert(signal, d, prev_level=None):
         else:
             msg += f"• VIX: {vix['current']:.1f}\n"
     if fg.get("value"):
-        msg += f"• F&G: {fg['value']} (1M {fg.get('change1m', 0):+d})\n"
+        msg += f"• F&amp;G: {fg['value']} (1M {fg.get('change1m', 0):+d})\n"
     if hy.get("value"):
         msg += f"• HY: {hy['value']:.0f}bp (ROC {hy.get('roc6m', 0):+.0f}%)\n"
     if yc.get("tenMinus2y") is not None:
@@ -721,24 +741,22 @@ def format_alert(signal, d, prev_level=None):
         msg += f"• RSI(W): {d['rsi']['weekly']:.1f}\n"
     
     if gates["regime"]:
-        msg += f"\n🌐 <b>{gates['regime']['label']}</b>\n<i>{gates['regime']['desc']}</i>\n"
+        msg += f"\n🌐 <b>{E(gates['regime']['label'])}</b>\n<i>{E(gates['regime']['desc'])}</i>\n"
     
     if gates["momentum"]:
         if gates["momentum"]["deterioration"]:
-            msg += f"\n📉 악화 추세: {' · '.join(gates['momentum']['deteriorationFactors'])}\n"
+            msg += f"\n📉 악화 추세: {E(' · '.join(gates['momentum']['deteriorationFactors']))}\n"
         if gates["momentum"]["recovery"]:
-            msg += f"\n📈 개선 추세: {' · '.join(gates['momentum']['recoveryFactors'])}\n"
+            msg += f"\n📈 개선 추세: {E(' · '.join(gates['momentum']['recoveryFactors']))}\n"
     
     if gates["midDecline"] and gates["midDecline"]["triggered"]:
         msg += f"\n⚠️ <b>Mid-Decline 함정 — 매수 신호 강등</b>\n"
-        msg += f"<i>{' · '.join(gates['midDecline']['factors'])}</i>\n"
+        msg += f"<i>{E(' · '.join(gates['midDecline']['factors']))}</i>\n"
     
-    if gates["sellChecks"]:
-        msg += f"\n🔻 매도 confirmation ({gates['sellConf']}/5): "
-        msg += ", ".join([c[0] for c in gates["sellChecks"]]) + "\n"
+    # 매도 confirmation 표시는 v14에서 제거 (매도 등급 운영 제외, 2026-11-03)
     if gates["buyChecks"]:
         msg += f"\n🟢 매수 패닉 ({gates['buyPanic']}/4): "
-        msg += ", ".join([c[0] for c in gates["buyChecks"]]) + "\n"
+        msg += E(", ".join([str(c[0]) for c in gates["buyChecks"]])) + "\n"
     
     msg += f"\n📅 {kst_now_str()} KST"
     return msg
@@ -878,31 +896,41 @@ def main():
     if signal['gates']['midDecline'] and signal['gates']['midDecline']['triggered']:
         print(f"   ⚠️ Mid-Decline 감지!")
     
-    prev_state = load_previous_state()
+    try:
+        prev_state = load_previous_state()
+    except Exception as e:
+        print(f"⚠️ 상태 파일 읽기 실패 → 빈 상태로 진행: {e}")
+        prev_state = {}
     prev_level = prev_state.get("level")
+    # 마지막으로 '알림이 실제로 전송된' 등급. 전송 성공 시에만 갱신 → 실패하면 다음 실행에 재시도 (2026-11-03)
+    level_notified = prev_state.get("level_notified", alert_level(prev_level) if prev_level else None)
+    cur_alert = alert_level(signal["level"])
     
     should_alert = False
-    if ALERT_ON_LEVEL_CHANGE and prev_level != signal["level"]:
+    if ALERT_ON_LEVEL_CHANGE and level_notified != cur_alert:
         should_alert = True
-        print(f"\n📢 등급 변경: {prev_level} → {signal['level']}")
+        print(f"\n📢 등급 변경: {level_notified} → {cur_alert} (원 등급 {signal['level']})")
     if ALERT_ON_DAILY_REPORT:
         should_alert = True
     
     if should_alert:
         try:
-            msg = format_alert(signal, d, prev_level)
-            send_telegram(msg)
+            msg = format_alert(signal, d, level_notified)
+            if send_telegram(msg):
+                level_notified = cur_alert
         except Exception as e:
             print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
     else:
-        print(f"\n⏭️ 알림 스킵 (변경 없음: {prev_level})")
+        print(f"\n⏭️ 알림 스킵 (변경 없음: {level_notified})")
     
     # LATE_CYCLE 상태 변화 알림 (NONE/NEAR/ACTIVE 바뀔 때 1회, 전송 성공 시에만 기록 → 실패하면 다음 실행에 재시도)
     lc = compute_late_cycle(d, signal)
     notified = prev_state.get("late_cycle_notified")
     if notified is None and lc["status"] == "NONE":
         notified = "NONE"   # 첫 배포 시 평상시면 알림 없이 기준만 기록
-    if lc["status"] != notified:
+    if lc["status"] == "UNKNOWN":
+        print("   LATE_CYCLE 판정 보류 (HY 또는 2s10s 결측 — 결측 알림으로 대신 안내)")
+    elif lc["status"] != notified:
         print(f"\n📢 LATE_CYCLE 상태 변경: {notified} → {lc['status']}")
         try:
             if send_telegram(format_late_cycle_message(lc, notified)):
@@ -916,7 +944,7 @@ def main():
                                      ("fearGreed", "F&G"), ("rsi", "RSI")) if k not in d]
     missing_notified = prev_state.get("missing_notified", [])
     if missing != missing_notified:
-        text = (f"⚠️ <b>v8 입력 결측</b>: {', '.join(missing)}\n해당 지표 점수 0으로 계산 중 — 신호 신뢰도 낮음"
+        text = (f"⚠️ <b>v8 입력 결측</b>: {html.escape(', '.join(missing))}\n해당 지표 점수 0으로 계산 중 — 신호 신뢰도 낮음"
                 if missing else "✅ <b>v8 입력 결측 해소</b> — 모든 지표 정상 수집")
         if send_telegram(text + f"\n📅 {kst_now_str()} KST"):
             missing_notified = missing
@@ -924,7 +952,7 @@ def main():
     try:
         save_state({
             "missing_notified": missing_notified,
-            "level": signal["level"], "score": signal["score"],
+            "level": signal["level"], "level_notified": level_notified, "score": signal["score"],
             "regime": signal["gates"]["regime"]["regime"],
             "late_cycle_status": lc["status"],
             "late_cycle_notified": notified,
@@ -933,11 +961,14 @@ def main():
     except Exception as e:
         print(f"⚠️ 상태 저장 오류: {type(e).__name__}: {e}")
     
-    # PWA용 data.json 저장
+    # PWA용 data.json 저장 — 실패를 조용히 넘기지 않음 (2026-11-03)
     try:
         export_data_json(d, signal)
     except Exception as e:
-        print(f"⚠️ data.json 저장 오류: {type(e).__name__}: {e}")
+        print(f"❌ data.json 저장 오류: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        fail_exit(f"data.json 저장 실패: {type(e).__name__}: {e}")
     
     print("\n✅ 완료")
 
@@ -949,6 +980,4 @@ if __name__ == "__main__":
         print(f"\n❌ 예상치 못한 오류: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        # exit code 1로 종료하되, 에러 메시지를 명확히 표시
-        import sys
-        sys.exit(1)
+        fail_exit(f"예상치 못한 오류: {type(e).__name__}: {e}")
