@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-06T02:51:34.102254+00:00",
+  "timestamp": "2026-11-06T19:56:41.339755+00:00",
   "level": "WATCH",
   "score": 2.7,
   "regime": "BULL_MID",
@@ -14,11 +14,11 @@
   "fg": 20,
   "fg_1m_ago": 47,
   "rsi_w": 44.2,
-  "hy": 332,
-  "hy_6m_ago": 275,
+  "hy": 348,
+  "hy_6m_ago": 279,
   "yc": 0.32,
   "missing": [],
-  "intraday_excluded": false,
+  "intraday_excluded": true,
   "proximity": {
     "next_level": "BUY",
     "next_threshold": 4.0,
@@ -27,7 +27,7 @@
   },
   "late_cycle": {
     "status": "NEAR",
-    "hy": 332,
+    "hy": 348,
     "hy_threshold": 350.0,
     "yc": 0.32,
     "yc_threshold": 0.3,
