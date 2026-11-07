@@ -1,10 +1,10 @@
 {
   "missing_notified": [],
-  "level": "WATCH",
-  "level_notified": "WATCH",
-  "score": 2.7,
+  "level": "NEUTRAL",
+  "level_notified": "NEUTRAL",
+  "score": 1.2,
   "regime": "BULL_MID",
   "late_cycle_status": "NEAR",
   "late_cycle_notified": "NEAR",
-  "timestamp": "2026-11-06T19:56:41.339612+00:00"
+  "timestamp": "2026-11-07T01:56:00.784586+00:00"
 }
