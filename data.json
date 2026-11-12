@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-12T03:25:23.800608+00:00",
+  "timestamp": "2026-11-12T20:47:11.659568+00:00",
   "level": "NEUTRAL",
   "score": 0.7,
   "regime": "BULL_MID",
@@ -11,14 +11,14 @@
   "vix": 17.5,
   "vix_3m": 16.8,
   "vix_3m_ago": 15.2,
-  "fg": 37,
+  "fg": 36,
   "fg_1m_ago": 45,
   "rsi_w": 43.9,
-  "hy": 334,
+  "hy": 330,
   "hy_6m_ago": 282,
   "yc": 0.32,
   "missing": [],
-  "intraday_excluded": false,
+  "intraday_excluded": true,
   "proximity": {
     "next_level": "WATCH",
     "next_threshold": 1.5,
@@ -27,7 +27,7 @@
   },
   "late_cycle": {
     "status": "NEAR",
-    "hy": 334,
+    "hy": 330,
     "hy_threshold": 350.0,
     "yc": 0.32,
     "yc_threshold": 0.3,
