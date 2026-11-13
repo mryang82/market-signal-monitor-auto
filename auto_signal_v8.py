@@ -104,6 +104,9 @@ def fetch_fred(series_id):
         return None
 
 
+FG_DEBUG = {}   # CNN 원자료 진단 (2026-11-13): 아침 실행 값이 확정값과 다른 원인 추적용
+
+
 def fetch_fear_greed():
     """CNN Fear & Greed Index (주식 sentiment) - alternative.me는 비트코인 fallback
     
@@ -130,6 +133,20 @@ def fetch_fear_greed():
         if r.status_code == 200:
             data = r.json()
             hist = data.get("fear_and_greed_historical", {}).get("data", [])
+            try:
+                top = data.get("fear_and_greed") or {}
+                tail = sorted(hist, key=lambda p: p.get("x", 0))[-3:]
+                FG_DEBUG.update({
+                    "fetched_utc": utc_now_iso(),
+                    "top_score": round(float(top["score"]), 1) if top.get("score") is not None else None,
+                    "top_timestamp": str(top.get("timestamp")) if top.get("timestamp") is not None else None,
+                    "top_previous_close": round(float(top["previous_close"]), 1) if top.get("previous_close") is not None else None,
+                    "last_points": [{"t_utc": pd.to_datetime(p["x"], unit="ms").strftime("%Y-%m-%dT%H:%M"),
+                                     "v": round(float(p["y"]), 1)} for p in tail],
+                })
+                print(f"      CNN 원자료: {json.dumps(FG_DEBUG, ensure_ascii=False)}")
+            except Exception as e:
+                print(f"      (F&G 진단 기록 실패: {e})")
             if len(hist) > 0:
                 df = pd.DataFrame(hist)
                 # x = unix timestamp(ms), y = F&G 값
@@ -622,8 +639,13 @@ PROB_TABLE = {
 SELL_LEVELS = ("CAUTION", "WARNING", "STRONG_SELL", "CRASH_WARNING")
 
 
+# 즉시 알림은 행동 신호(STRONG_BUY·CRASH_BUY 진입·이탈)만. 그 밖의 등급 변화(WATCH·BUY·매도 등급)는
+# 단기 저장소가 하루 한 번 '참고 요약'으로 묶어 보냄 (2026-11-13, 11/2~11/10 알림 8건 중 7건이 참고 등급이었음)
+ACTION_LEVELS = ("STRONG_BUY", "CRASH_BUY")
+
+
 def alert_level(level):
-    return "NEUTRAL" if level in SELL_LEVELS else level
+    return level if level in ACTION_LEVELS else "BASE"
 
 LEVEL_EMOJI = {
     "CRASH_BUY": "🟢🟢🟢", "STRONG_BUY": "🟢🟢", "BUY": "🟢",
@@ -639,6 +661,8 @@ LEVEL_EMOJI = {
 BUY_LEVELS_ASC = [("WATCH", 1.5), ("BUY", 4.0), ("STRONG_BUY", 8.0), ("CRASH_BUY", 13.0)]
 LATE_HY, LATE_YC = 350.0, 0.3            # classify_regime 의 LATE_CYCLE 조건
 LATE_NEAR_HY, LATE_NEAR_YC = 330.0, 0.4  # 근접 판정 (두 조건 모두 경계 근처)
+# 임박 해제는 진입보다 느슨하게: 경계(330·0.4) 왕복으로 2주에 7번 바뀌던 문제 (2026-11-13). 표시용, 미검증 수치. 점수 계산과 무관
+LATE_EXIT_HY, LATE_EXIT_YC = 320.0, 0.45
 
 
 def compute_proximity(signal):
@@ -657,11 +681,14 @@ def compute_proximity(signal):
     }
 
 
-def compute_late_cycle(d, signal):
+def compute_late_cycle(d, signal, prev_status=None):
     hy = d.get("hySpread", {}).get("value")
     yc = d.get("yieldCurve", {}).get("tenMinus2y")
     active = signal["gates"]["regime"]["regime"] == "LATE_CYCLE"
     near = (hy is not None and yc is not None and hy >= LATE_NEAR_HY and yc <= LATE_NEAR_YC)
+    if (not near and hy is not None and yc is not None and prev_status in ("NEAR", "ACTIVE")
+            and hy >= LATE_EXIT_HY and yc <= LATE_EXIT_YC):
+        near = True   # 이미 임박 상태면 해제 기준(320·0.45)을 벗어날 때까지 유지
     if hy is None or yc is None:
         status = "UNKNOWN"   # FRED 결측: '해소'로 오판하지 않고 판정 보류 (2026-11-03)
     else:
@@ -702,6 +729,8 @@ def format_alert(signal, d, prev_level=None):
         msg += f"\n📊 12M 내 +15% 달성: <b>{prob['pUp15']}%</b> ({E(prob['ev'])})\n"
     if prob.get("tag"):
         msg += f"<i>{E(prob['tag'])}</i>\n"
+    if level in ACTION_LEVELS and not is_intraday_now() and "fearGreed" in d:
+        msg += "<i>⚠️ F&amp;G는 장 마감 직후 잠정값 — 저녁 실행에서 확정값으로 다시 판정 (등급이 바뀌면 다시 알림)</i>\n"
 
     prox = compute_proximity(signal)
     if prox["next_level"] in ("STRONG_BUY", "CRASH_BUY") and prox["gap"] is not None and prox["gap"] <= 1.0:
@@ -795,7 +824,7 @@ def save_state(state):
     STATE_FILE.write_text(json.dumps(state, indent=2, default=str))
 
 
-def export_data_json(d, signal):
+def export_data_json(d, signal, lc=None):
     """PWA용 data.json — 14개 입력값 형태"""
     sp = d.get("sp500", {})
     nq = d.get("nasdaq", {})
@@ -833,7 +862,10 @@ def export_data_json(d, signal):
                                        ("fearGreed", "F&G"), ("rsi", "RSI")) if k not in d],
         "intraday_excluded": is_intraday_now(),
         "proximity": compute_proximity(signal),
-        "late_cycle": compute_late_cycle(d, signal),
+        "late_cycle": lc if lc is not None else compute_late_cycle(d, signal),
+        # 장 마감 직후(아침 KST) 실행의 CNN 값은 다음 날 확정값과 다를 수 있음 (2026-11-11 점검: 8일 중 5일 2점 이상 차이)
+        "fg_provisional": ("fearGreed" in d) and not is_intraday_now(),
+        "fg_debug": FG_DEBUG or None,
     }
     
     Path("data.json").write_text(json.dumps(export, indent=2, default=str))
@@ -903,41 +935,32 @@ def main():
         prev_state = {}
     prev_level = prev_state.get("level")
     # 마지막으로 '알림이 실제로 전송된' 등급. 전송 성공 시에만 갱신 → 실패하면 다음 실행에 재시도 (2026-11-03)
-    level_notified = prev_state.get("level_notified", alert_level(prev_level) if prev_level else None)
+    level_notified = prev_state.get("level_notified", prev_level)
+    level_notified = alert_level(level_notified) if level_notified else None   # 옛 상태값(NEUTRAL 등)은 BASE로 읽음
+    if level_notified is None:
+        level_notified = "BASE"   # 첫 실행: 행동 등급이면 알림, 아니면 기준만 기록
     cur_alert = alert_level(signal["level"])
     
     should_alert = False
     if ALERT_ON_LEVEL_CHANGE and level_notified != cur_alert:
         should_alert = True
-        print(f"\n📢 등급 변경: {level_notified} → {cur_alert} (원 등급 {signal['level']})")
+        print(f"\n📢 행동 등급 변경: {level_notified} → {cur_alert} (원 등급 {signal['level']})")
     if ALERT_ON_DAILY_REPORT:
         should_alert = True
     
     if should_alert:
         try:
-            msg = format_alert(signal, d, level_notified)
+            msg = format_alert(signal, d, prev_level)
             if send_telegram(msg):
                 level_notified = cur_alert
         except Exception as e:
             print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
     else:
-        print(f"\n⏭️ 알림 스킵 (변경 없음: {level_notified})")
+        print(f"\n⏭️ 즉시 알림 없음 (행동 등급 변화 없음: {level_notified}, 현재 {signal['level']} — 참고 등급은 하루 요약으로)")
     
-    # LATE_CYCLE 상태 변화 알림 (NONE/NEAR/ACTIVE 바뀔 때 1회, 전송 성공 시에만 기록 → 실패하면 다음 실행에 재시도)
-    lc = compute_late_cycle(d, signal)
-    notified = prev_state.get("late_cycle_notified")
-    if notified is None and lc["status"] == "NONE":
-        notified = "NONE"   # 첫 배포 시 평상시면 알림 없이 기준만 기록
-    if lc["status"] == "UNKNOWN":
-        print("   LATE_CYCLE 판정 보류 (HY 또는 2s10s 결측 — 결측 알림으로 대신 안내)")
-    elif lc["status"] != notified:
-        print(f"\n📢 LATE_CYCLE 상태 변경: {notified} → {lc['status']}")
-        try:
-            if send_telegram(format_late_cycle_message(lc, notified)):
-                notified = lc["status"]
-        except Exception as e:
-            print(f"⚠️ 알림 전송 중 오류: {type(e).__name__}: {e}")
-    print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']}, 알림 기록 {notified})")
+    # LATE_CYCLE: 텔레그램 즉시 알림 없음 (참고 표시) → 단기 저장소의 하루 요약에 포함 (2026-11-13)
+    lc = compute_late_cycle(d, signal, prev_state.get("late_cycle_status"))
+    print(f"   LATE_CYCLE 감시: {lc['status']} (HY {lc['hy']}, 2s10s {lc['yc']}, 이전 {prev_state.get('late_cycle_status')})")
 
     # 보조 입력 결측 알림 (F&G·HY 등 실패 시 해당 점수 0으로 계산됨) — 결측 구성이 바뀔 때만 1회
     missing = [name for k, name in (("nasdaq", "나스닥 종합"), ("yieldCurve", "2s10s"), ("hySpread", "HY"),
@@ -954,8 +977,8 @@ def main():
             "missing_notified": missing_notified,
             "level": signal["level"], "level_notified": level_notified, "score": signal["score"],
             "regime": signal["gates"]["regime"]["regime"],
-            "late_cycle_status": lc["status"],
-            "late_cycle_notified": notified,
+            # 판정 보류(UNKNOWN)면 이전 상태를 유지해 이력 기준이 끊기지 않게 함
+            "late_cycle_status": lc["status"] if lc["status"] != "UNKNOWN" else prev_state.get("late_cycle_status"),
             "timestamp": utc_now_iso(),
         })
     except Exception as e:
@@ -963,7 +986,7 @@ def main():
     
     # PWA용 data.json 저장 — 실패를 조용히 넘기지 않음 (2026-11-03)
     try:
-        export_data_json(d, signal)
+        export_data_json(d, signal, lc)
     except Exception as e:
         print(f"❌ data.json 저장 오류: {type(e).__name__}: {e}")
         import traceback
