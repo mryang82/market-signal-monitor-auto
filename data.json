@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-13T06:27:41.873865+00:00",
+  "timestamp": "2026-11-13T20:28:29.800880+00:00",
   "level": "NEUTRAL",
   "score": 0.7,
   "regime": "BULL_MID",
@@ -14,8 +14,8 @@
   "fg": 40,
   "fg_1m_ago": 46,
   "rsi_w": 42.5,
-  "hy": 330,
-  "hy_6m_ago": 282,
+  "hy": 320,
+  "hy_6m_ago": 276,
   "yc": 0.25,
   "missing": [],
   "intraday_excluded": true,
@@ -27,7 +27,7 @@
   },
   "late_cycle": {
     "status": "NEAR",
-    "hy": 330,
+    "hy": 320,
     "hy_threshold": 350.0,
     "yc": 0.25,
     "yc_threshold": 0.3,
@@ -35,22 +35,22 @@
   },
   "fg_provisional": false,
   "fg_debug": {
-    "fetched_utc": "2026-11-13T06:27:41.867455+00:00",
-    "top_score": 39.8,
-    "top_timestamp": "2026-11-13T01:00:00+00:00",
+    "fetched_utc": "2026-11-13T20:28:29.795798+00:00",
+    "top_score": 38.5,
+    "top_timestamp": "2026-11-13T20:27:46+00:00",
     "top_previous_close": 39.8,
     "last_points": [
       {
         "t_utc": "2026-11-12T00:00",
-        "v": 39.8
+        "v": 40.3
       },
       {
         "t_utc": "2026-11-13T00:00",
-        "v": 39.8
+        "v": 38.5
       },
       {
-        "t_utc": "2026-11-13T01:00",
-        "v": 39.8
+        "t_utc": "2026-11-13T20:27",
+        "v": 38.5
       }
     ]
   }
