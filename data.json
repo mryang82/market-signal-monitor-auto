@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-14T02:27:02.020434+00:00",
+  "timestamp": "2026-11-14T02:42:46.552206+00:00",
   "level": "NEUTRAL",
   "score": 0.2,
   "regime": "BULL_MID",
@@ -35,7 +35,7 @@
   },
   "fg_provisional": true,
   "fg_debug": {
-    "fetched_utc": "2026-11-14T02:27:02.013562+00:00",
+    "fetched_utc": "2026-11-14T02:42:46.540122+00:00",
     "top_score": 38.6,
     "top_timestamp": "2026-11-13T23:59:56+00:00",
     "top_previous_close": 39.8,
