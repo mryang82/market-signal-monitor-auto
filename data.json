@@ -1,56 +1,56 @@
 {
-  "timestamp": "2026-11-17T04:48:30.719033+00:00",
+  "timestamp": "2026-11-17T21:45:25.971627+00:00",
   "level": "NEUTRAL",
-  "score": 0.8,
+  "score": 1.3,
   "regime": "BULL_MID",
-  "spx": 7417,
+  "spx": 7341,
   "spx_high": 7819,
-  "spx_ma200": 7343,
-  "ixic": 24510,
+  "spx_ma200": 7345,
+  "ixic": 24328,
   "ixic_high": 27600,
-  "vix": 22.9,
-  "vix_3m": 17.0,
-  "vix_3m_ago": 16.0,
-  "fg": 31,
-  "fg_1m_ago": 18,
-  "rsi_w": 34.5,
-  "hy": 323,
+  "vix": 25.5,
+  "vix_3m": 17.1,
+  "vix_3m_ago": 15.1,
+  "fg": 25,
+  "fg_1m_ago": 20,
+  "rsi_w": 32.4,
+  "hy": 334,
   "hy_6m_ago": 283,
-  "yc": 0.27,
+  "yc": 0.29,
   "missing": [],
   "intraday_excluded": false,
   "proximity": {
     "next_level": "WATCH",
     "next_threshold": 1.5,
-    "gap": 0.7,
+    "gap": 0.2,
     "capped": null
   },
   "late_cycle": {
     "status": "NEAR",
-    "hy": 323,
+    "hy": 334,
     "hy_threshold": 350.0,
-    "yc": 0.27,
+    "yc": 0.29,
     "yc_threshold": 0.3,
     "desc": "LATE_CYCLE: HY 350bp \uc774\uc0c1 \uadf8\ub9ac\uace0 2s10s 0.3% \ubbf8\ub9cc \u2192 \ub9e4\ub3c4 \uac00\uc911\uce58 1.10x, \ub9e4\uc218 0.95x"
   },
   "fg_provisional": true,
   "fg_debug": {
-    "fetched_utc": "2026-11-17T04:48:30.714680+00:00",
-    "top_score": 31.0,
-    "top_timestamp": "2026-11-16T23:59:54+00:00",
-    "top_previous_close": 38.6,
+    "fetched_utc": "2026-11-17T21:45:25.967715+00:00",
+    "top_score": 25.2,
+    "top_timestamp": "2026-11-17T21:29:08+00:00",
+    "top_previous_close": 31.0,
     "last_points": [
       {
-        "t_utc": "2026-11-13T00:00",
-        "v": 37.4
-      },
-      {
         "t_utc": "2026-11-16T00:00",
-        "v": 31.0
+        "v": 31.1
       },
       {
-        "t_utc": "2026-11-16T23:59",
-        "v": 31.0
+        "t_utc": "2026-11-17T00:00",
+        "v": 25.2
+      },
+      {
+        "t_utc": "2026-11-17T21:29",
+        "v": 25.2
       }
     ]
   }
