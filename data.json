@@ -1,22 +1,22 @@
 {
-  "timestamp": "2026-11-18T03:54:05.123460+00:00",
+  "timestamp": "2026-11-18T21:24:56.238227+00:00",
   "level": "NEUTRAL",
   "score": 1.3,
   "regime": "BULL_MID",
-  "spx": 7341,
+  "spx": 7324,
   "spx_high": 7819,
-  "spx_ma200": 7345,
-  "ixic": 24328,
+  "spx_ma200": 7347,
+  "ixic": 24430,
   "ixic_high": 27600,
-  "vix": 25.5,
-  "vix_3m": 17.1,
-  "vix_3m_ago": 15.1,
+  "vix": 24.5,
+  "vix_3m": 17.3,
+  "vix_3m_ago": 15.9,
   "fg": 25,
   "fg_1m_ago": 20,
-  "rsi_w": 32.4,
-  "hy": 334,
-  "hy_6m_ago": 283,
-  "yc": 0.29,
+  "rsi_w": 32.0,
+  "hy": 343,
+  "hy_6m_ago": 286,
+  "yc": 0.3,
   "missing": [],
   "intraday_excluded": false,
   "proximity": {
@@ -27,30 +27,30 @@
   },
   "late_cycle": {
     "status": "NEAR",
-    "hy": 334,
+    "hy": 343,
     "hy_threshold": 350.0,
-    "yc": 0.29,
+    "yc": 0.3,
     "yc_threshold": 0.3,
     "desc": "LATE_CYCLE: HY 350bp \uc774\uc0c1 \uadf8\ub9ac\uace0 2s10s 0.3% \ubbf8\ub9cc \u2192 \ub9e4\ub3c4 \uac00\uc911\uce58 1.10x, \ub9e4\uc218 0.95x"
   },
   "fg_provisional": true,
   "fg_debug": {
-    "fetched_utc": "2026-11-18T03:54:05.119503+00:00",
-    "top_score": 25.2,
-    "top_timestamp": "2026-11-17T23:59:42+00:00",
-    "top_previous_close": 31.0,
+    "fetched_utc": "2026-11-18T21:24:56.233321+00:00",
+    "top_score": 24.6,
+    "top_timestamp": "2026-11-18T21:12:36+00:00",
+    "top_previous_close": 25.2,
     "last_points": [
       {
-        "t_utc": "2026-11-16T00:00",
-        "v": 31.1
-      },
-      {
         "t_utc": "2026-11-17T00:00",
-        "v": 25.2
+        "v": 26.0
       },
       {
-        "t_utc": "2026-11-17T23:59",
-        "v": 25.2
+        "t_utc": "2026-11-18T00:00",
+        "v": 24.6
+      },
+      {
+        "t_utc": "2026-11-18T21:12",
+        "v": 24.6
       }
     ]
   }
