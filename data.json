@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-11-20T03:44:39.689886+00:00",
+  "timestamp": "2026-11-20T21:03:14.227631+00:00",
   "level": "WATCH",
-  "score": 3.8,
-  "regime": "BULL_MID",
+  "score": 3.32,
+  "regime": "LATE_CYCLE",
   "spx": 7176,
   "spx_high": 7819,
   "spx_ma200": 7348,
@@ -11,46 +11,46 @@
   "vix": 28.4,
   "vix_3m": 17.5,
   "vix_3m_ago": 15.4,
-  "fg": 19,
+  "fg": 16,
   "fg_1m_ago": 29,
   "rsi_w": 28.7,
-  "hy": 347,
-  "hy_6m_ago": 280,
+  "hy": 352,
+  "hy_6m_ago": 278,
   "yc": 0.27,
   "missing": [],
-  "intraday_excluded": false,
+  "intraday_excluded": true,
   "proximity": {
     "next_level": "BUY",
     "next_threshold": 4.0,
-    "gap": 0.2,
+    "gap": 0.68,
     "capped": null
   },
   "late_cycle": {
-    "status": "NEAR",
-    "hy": 347,
+    "status": "ACTIVE",
+    "hy": 352,
     "hy_threshold": 350.0,
     "yc": 0.27,
     "yc_threshold": 0.3,
     "desc": "LATE_CYCLE: HY 350bp \uc774\uc0c1 \uadf8\ub9ac\uace0 2s10s 0.3% \ubbf8\ub9cc \u2192 \ub9e4\ub3c4 \uac00\uc911\uce58 1.10x, \ub9e4\uc218 0.95x"
   },
-  "fg_provisional": true,
+  "fg_provisional": false,
   "fg_debug": {
-    "fetched_utc": "2026-11-20T03:44:39.602041+00:00",
-    "top_score": 18.7,
-    "top_timestamp": "2026-11-19T23:59:41+00:00",
-    "top_previous_close": 24.6,
+    "fetched_utc": "2026-11-20T21:03:14.222549+00:00",
+    "top_score": 9.8,
+    "top_timestamp": "2026-11-20T20:59:59+00:00",
+    "top_previous_close": 18.7,
     "last_points": [
       {
-        "t_utc": "2026-11-18T00:00",
-        "v": 29.9
-      },
-      {
         "t_utc": "2026-11-19T00:00",
-        "v": 18.7
+        "v": 15.9
       },
       {
-        "t_utc": "2026-11-19T23:59",
-        "v": 18.7
+        "t_utc": "2026-11-20T00:00",
+        "v": 9.8
+      },
+      {
+        "t_utc": "2026-11-20T20:59",
+        "v": 9.8
       }
     ]
   }

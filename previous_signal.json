@@ -2,8 +2,8 @@
   "missing_notified": [],
   "level": "WATCH",
   "level_notified": "BASE",
-  "score": 3.8,
-  "regime": "BULL_MID",
-  "late_cycle_status": "NEAR",
-  "timestamp": "2026-11-20T03:44:39.605316+00:00"
+  "score": 3.32,
+  "regime": "LATE_CYCLE",
+  "late_cycle_status": "ACTIVE",
+  "timestamp": "2026-11-20T21:03:14.227311+00:00"
 }
