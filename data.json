@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-21T03:13:25.148322+00:00",
+  "timestamp": "2026-11-21T03:31:42.162311+00:00",
   "level": "BUY",
   "score": 7.32,
   "regime": "LATE_CYCLE",
@@ -35,7 +35,7 @@
   },
   "fg_provisional": true,
   "fg_debug": {
-    "fetched_utc": "2026-11-21T03:13:25.143675+00:00",
+    "fetched_utc": "2026-11-21T03:31:42.157630+00:00",
     "top_score": 9.7,
     "top_timestamp": "2026-11-20T23:59:52+00:00",
     "top_previous_close": 18.7,
