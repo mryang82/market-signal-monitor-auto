@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-24T00:48:26.451848+00:00",
+  "timestamp": "2026-11-24T06:03:29.996104+00:00",
   "level": "WATCH",
   "score": 2.18,
   "regime": "LATE_CYCLE",
@@ -18,7 +18,7 @@
   "hy_6m_ago": 274,
   "yc": 0.29,
   "missing": [],
-  "intraday_excluded": false,
+  "intraday_excluded": true,
   "proximity": {
     "next_level": "BUY",
     "next_threshold": 4.0,
@@ -33,23 +33,23 @@
     "yc_threshold": 0.3,
     "desc": "LATE_CYCLE: HY 350bp \uc774\uc0c1 \uadf8\ub9ac\uace0 2s10s 0.3% \ubbf8\ub9cc \u2192 \ub9e4\ub3c4 \uac00\uc911\uce58 1.10x, \ub9e4\uc218 0.95x"
   },
-  "fg_provisional": true,
+  "fg_provisional": false,
   "fg_debug": {
-    "fetched_utc": "2026-11-24T00:48:26.446177+00:00",
+    "fetched_utc": "2026-11-24T06:03:29.990171+00:00",
     "top_score": 17.0,
-    "top_timestamp": "2026-11-23T23:59:56+00:00",
-    "top_previous_close": 9.7,
+    "top_timestamp": "2026-11-24T01:00:00+00:00",
+    "top_previous_close": 17.0,
     "last_points": [
-      {
-        "t_utc": "2026-11-20T00:00",
-        "v": 18.6
-      },
       {
         "t_utc": "2026-11-23T00:00",
         "v": 17.0
       },
       {
-        "t_utc": "2026-11-23T23:59",
+        "t_utc": "2026-11-24T00:00",
+        "v": 17.0
+      },
+      {
+        "t_utc": "2026-11-24T01:00",
         "v": 17.0
       }
     ]
