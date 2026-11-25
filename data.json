@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-24T23:00:16.342948+00:00",
+  "timestamp": "2026-11-25T04:53:42.061360+00:00",
   "level": "WATCH",
   "score": 2.18,
   "regime": "LATE_CYCLE",
@@ -35,9 +35,9 @@
   },
   "fg_provisional": true,
   "fg_debug": {
-    "fetched_utc": "2026-11-24T23:00:16.338633+00:00",
+    "fetched_utc": "2026-11-25T04:53:42.055616+00:00",
     "top_score": 17.4,
-    "top_timestamp": "2026-11-24T22:44:01+00:00",
+    "top_timestamp": "2026-11-24T23:59:52+00:00",
     "top_previous_close": 17.0,
     "last_points": [
       {
@@ -49,7 +49,7 @@
         "v": 17.4
       },
       {
-        "t_utc": "2026-11-24T22:44",
+        "t_utc": "2026-11-24T23:59",
         "v": 17.4
       }
     ]
