@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-26T04:09:32.113233+00:00",
+  "timestamp": "2026-11-26T04:29:13.179702+00:00",
   "level": "WATCH",
   "score": 2.66,
   "regime": "LATE_CYCLE",
@@ -35,7 +35,7 @@
   },
   "fg_provisional": true,
   "fg_debug": {
-    "fetched_utc": "2026-11-26T04:09:32.106759+00:00",
+    "fetched_utc": "2026-11-26T04:29:13.174922+00:00",
     "top_score": 15.2,
     "top_timestamp": "2026-11-25T23:59:57+00:00",
     "top_previous_close": 17.4,
